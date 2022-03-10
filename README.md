@@ -109,6 +109,24 @@ dataset_train.targets = y_train_noisy
 
 
 
+**2.3 Illustration of local data partition**
+
+Three examples of non-IID data partition (after sorting) on CIFAR-10.
+
+![](img/noniid_all.png)
+
+
+
+**2.4 Illustration of noise model**
+
+An example of noisy label distribution on the first five clients,  conducted on CIFAR-10 with IID data partition and noise setting $(\rho,\tau)=(0.6,0.5) $ among 100 clients.  For each client, we give the confusion matrix of local dataset before training.
+
+![](img/confusion_before.png)
+
+
+
+
+
 ## 3. Combating Heterogeneous Label Noise using FedCorr
 
 + To train on CIFAR-10 with IID data partition and noise setting $(\rho,\tau)=(0.6,0.5)$, over 100 clients:
