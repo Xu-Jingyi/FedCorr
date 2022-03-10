@@ -47,7 +47,7 @@ This is the official PyTorch code for the following CVPR 2022 paper:
 
 **1.2. Values**
 
-| parameters         | CIFAR10  | CIFAR100 | cLOTHING1M |
+| parameters         | CIFAR10  | CIFAR100 | CLOTHING1M |
 | ------------------ | -------- | -------- | ---------- |
 | `lr`               | 0.03     | 0.01     | 0.001      |
 | `iteration1`       | 5        | 10       | 2          |
