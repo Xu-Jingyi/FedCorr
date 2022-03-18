@@ -4,9 +4,22 @@ This is the official PyTorch code for the following CVPR 2022 paper:
 
 **Title**: FedCorr: Multi-Stage Federated Learning for Label Noise Correction.
 
-**Authors**: Jingyi Xu, Zihan Chen (equal contribution), Tony Q. S. Quek, and Kai Fong Ernest Chong
+**Authors**: Jingyi Xu\*, Zihan Chen\* (equal contribution), Tony Q. S. Quek, and Kai Fong Ernest Chong
 
 **Abstract**: Federated learning (FL) is a privacy-preserving distributed learning paradigm that enables clients to jointly train a global model. In real-world FL implementations, client data could have label noise, and different clients could have vastly different label noise levels. Although there exist methods in centralized learning for tackling label noise, such methods do not perform well on heterogeneous label noise in FL settings, due to the typically smaller sizes of client datasets and data privacy requirements in FL. In this paper, we propose FedCorr, a general multi-stage framework to tackle heterogeneous label noise in FL, without making any assumptions on the noise models of local clients, while still maintaining client data privacy. In particular, (1) FedCorr dynamically identifies noisy clients by exploiting the dimensionalities of the model prediction subspaces independently measured on all clients, and then identifies incorrect labels on noisy clients based on per-sample losses. To deal with data heterogeneity and to increase training stability, we propose an adaptive local proximal regularization term that is based on estimated local noise levels. (2) We further finetune the global model on identified clean clients and correct the noisy labels for the remaining noisy clients after finetuning. (3) Finally, we apply the usual training on all clients to make full use of all local data. Experiments conducted on CIFAR-10/100 with federated synthetic label noise, and on a real-world noisy dataset, Clothing1M, demonstrate that FedCorr is robust to label noise and substantially outperforms the state-of-the-art methods at multiple noise levels.
+
+### Citation
+
+```
+@inproceedings{xu2022fedcorr,
+    author = {Xu, Jingyi and Chen, Zihan and Quek, Tony Q.S. and Chong, Kai Fong Ernest},
+    title = {FedCorr: Multi-Stage Federated Learning for Label Noise Correction},
+    booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+    year = {2022}
+}
+```
+
+​	
 
 ## 0. Illustration
 
