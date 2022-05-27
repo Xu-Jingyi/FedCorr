@@ -2,7 +2,7 @@
 
 This is the official PyTorch code for the following CVPR 2022 paper:
 
-**Title**: FedCorr: Multi-Stage Federated Learning for Label Noise Correction.
+**Title**: FedCorr: Multi-Stage Federated Learning for Label Noise Correction. ([Paper Link](https://arxiv.org/abs/2204.04677))
 
 **Authors**: Jingyi Xu, Zihan Chen (equal contribution), Tony Q.S. Quek, and Kai Fong Ernest Chong
 
