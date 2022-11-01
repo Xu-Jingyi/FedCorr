@@ -21,9 +21,9 @@ This is the official PyTorch code for the following CVPR 2022 paper:
 
 ​	
 
-##Errata [Updated on November 1, 2022]
+## Errata [Updated on November 1, 2022]
 
-1. Supplementary material, Section 3.1, line 7 (arXiv version: page 13, line 1): Typo. The noise setting used for CIFAR-100 with non-IID data partition should be ($\rho$, $\tau$)=(0.4,0).
+1. Supplementary material, Section 3.1, line 7 (arXiv version: page 13, line 1): Typo. The noise setting used for CIFAR-100 with non-IID data partition should be ( $\rho$, $\tau$ )=(0.4,0).
 
 
 
