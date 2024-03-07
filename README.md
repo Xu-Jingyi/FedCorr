@@ -1,138 +1,199 @@
-# FedLoGe: Federated Local and Generic Model Training in Fed-LT
+# FedCorr: Multi-Stage Federated Learning for Label Noise Correction
 
-This repository contains the official source code for ICLR 2024 paper: "Joint Local and Generic Federated Learning under Long-tailed Data." You can access the paper [here](https://openreview.net/pdf?id=V3j5d0GQgH).
+This is the official PyTorch code for the following CVPR 2022 paper:
 
-**"Federated Local and Generic Model Training in Fed-LT (FedLoGe)"** innovates federated learning by enhancing both local and global model performances in data-imbalanced environments. By merging representation learning with classifier alignment in a neural collapse framework, FedLoGe addresses the traditional challenges of data imbalance and personalization in federated settings. It introduces mechanisms like the Static Sparse Equiangular Tight Frame Classifier (SSE-C) for feature optimization and Global and Local Adaptive Feature Realignment (GLA-FR) for tailored feature alignment, demonstrating superior results on datasets like CIFAR-10/100-LT, ImageNet, and iNaturalist compared to existing methods.
+**Title**: FedCorr: Multi-Stage Federated Learning for Label Noise Correction. ([Paper Link](https://arxiv.org/abs/2204.04677))
 
-![The framework of FedLoGe](Framework.png)
+**Authors**: Jingyi Xu, Zihan Chen (equal contribution), Tony Q.S. Quek, and Kai Fong Ernest Chong
 
+**Abstract**: Federated learning (FL) is a privacy-preserving distributed learning paradigm that enables clients to jointly train a global model. In real-world FL implementations, client data could have label noise, and different clients could have vastly different label noise levels. Although there exist methods in centralized learning for tackling label noise, such methods do not perform well on heterogeneous label noise in FL settings, due to the typically smaller sizes of client datasets and data privacy requirements in FL. In this paper, we propose FedCorr, a general multi-stage framework to tackle heterogeneous label noise in FL, without making any assumptions on the noise models of local clients, while still maintaining client data privacy. In particular, (1) FedCorr dynamically identifies noisy clients by exploiting the dimensionalities of the model prediction subspaces independently measured on all clients, and then identifies incorrect labels on noisy clients based on per-sample losses. To deal with data heterogeneity and to increase training stability, we propose an adaptive local proximal regularization term that is based on estimated local noise levels. (2) We further finetune the global model on identified clean clients and correct the noisy labels for the remaining noisy clients after finetuning. (3) Finally, we apply the usual training on all clients to make full use of all local data. Experiments conducted on CIFAR-10/100 with federated synthetic label noise, and on a real-world noisy dataset, Clothing1M, demonstrate that FedCorr is robust to label noise and substantially outperforms the state-of-the-art methods at multiple noise levels.
 
-
-> We also provide implementation for baselines under Fed-LT setup, which can be found in the '**baseline**' folder.
-
-## Usage
-
-To train a universal model (for any data distribution), follow step 1, and infer with:
-
-```python
-output = SSE_C(backbone(input))
-```
-To train a global model specifically for imbalanced data, follow steps 1 and 2, inferring with:
-```python
-output = realignment_global_head(backbone(input))
-```
-To train personalized models (work well for imbalanced data, ok of any other data distribution), follow steps 1 and 2, inferring with:
-```python
-output = realignment_local_heads[k](backbone(input)) + global_head[k](backbone(input))
-```
-
-## Core Code
-
-### Step 1: Build SSE-C and train a robust backbone. Maintain a shared global head (g_head) and K personalized local heads (l_heads).
-
-
-
-```python
-from util.etf_methods import ETF_Classifier
-# initialization
-backbone = ResNet_xx
-SSE_C = nn.Linear(in_features, out_features)
-global_head = nn.Linear(in_features, out_features)
-local_heads = [nn.Linear(in_features, out_features), ...]
-etf = ETF_Classifier(in_features, out_features)
-SSE_C.weight.data = sparse_etf_mat.to(args.device)
-SSE_C.weight.data = g_head.weight.data.t()
-
-# Training loop for client k
-for batch_idx, (images, labels) in enumerate(self.ldr_train):
-    # SSE-C train strong backbone
-    optimizer_backbone = torch.optim.SGD(list(backbone.parameters()), lr=self.args.lr, momentum=self.args.momentum) # only train backbone, froze the SSE-C
-    features = backbone(images)
-    output = SSE_C(features)
-    loss = nn.CrossEntropyLoss(output, labels)
-    loss.backward()
-    optimizer_backbone.step()
-
-    # train global head for aggregation
-    optimizer_g_head = torch.optim.SGD(list(global_head.parameters()), lr=self.args.lr, momentum=self.args.momentum) # only train backbone, froze the SSE-C
-    output_global = global_head(features.detach())
-    loss_g = nn.CrossEntropyLoss(output_global, labels)
-    loss_g.backward()
-    optimizer_g_head.step()
-
-    # train local head, never aggregation
-    optimizer_l_head = torch.optim.SGD(list(local_heads[k].parameters()), lr=self.args.lr, momentum=self.args.momentum) # only train backbone, froze the SSE-C
-    output_local = local_heads[k](features.detach())
-    loss_l = nn.CrossEntropyLoss(output_local, labels)
-    loss_l.backward()
-    optimizer_l_head.step()
-```
-Output of step 1: backbone, SSE_C, local_heads, global_head
-
-### Step 2: Personalize feature alignment to get one global model and K personalized models.
-
-#### Step 2.1 Local Adaptive Feature Realignment
-Input of step 2.1: global_head, local_heads
-```python
-
-realignment_local_heads = copy.deepcopy(local_heads)
-norm = torch.norm(realignment_local_heads[k].weight, p=2, dim=1)
-realignment_local_heads[k].weight = nn.Parameter(global_head.weight * norm.unsqueeze(1))
-zero_classes = np.where(class_distribution == 0)[0]
-for i in zero_classes:
-    realignment_local_heads.weight.data[i, :] = -1e10
-    global_head.weight.data[i, :] = -1e10
-```
-Output of step 2.1: realignment_local_heads
-
-
-### Step 2.2 Global Adaptive Feature Realignment
-Input of step 2.2: global_head, local_heads
-```python
-realignment_global_head = copy.deepcopy(global_head)
-
-cali_alpha = torch.norm(realignment_global_head.weight, dim=1)
-cali_alpha = torch.pow(cali_alpha, 1)
-inverse_cali_alpha = 1.7 / cali_alpha
-inverse_cali_alpha = inverse_cali_alpha.view(-1, 1)
-realignment_global_head.weight = torch.nn.Parameter(realignment_global_head.weight * inverse_cali_alpha)
-```
-Output of Step 2.2: realignment_global_head
-
-
-## Running the  Code
-
-### CIFAR-10/100
-Step 1: Training backbone with SSE-C
-
-```python
-nohup python fedloge.py --alpha_dirichlet 0.5 --IF 0.01 --beta 0 --gpu 0 --num_users 40 --frac 0.3 > sse_c.log 2>&1 &
-```
-Step 2: Global and Local feature realignment
-```python
-python Realignment.py
-```
-
-### ImageNet
-
-https://drive.google.com/file/d/1u5XF0AsDm0GRoEp3HJPZ_sSvvWb4BVCv/view?usp=drive_link
-
-### iNaturalist2018
-
-https://drive.google.com/file/d/1HLqF_n1Z8VUCIV3jDHhLmQXFrqs3CacR/view?usp=drive_link
-
-
-## Citation:
-
-If you find our work useful in your research, please consider citing:
+### Citation
 
 ```
-@inproceedings{
-xiao2024fedloge,
-title={FedLoGe: Joint Local and Generic Federated Learning under Long-tailed Data},
-author={Zikai Xiao and Zihan Chen and Liyinglan Liu and YANG FENG and Joey Tianyi Zhou and Jian Wu and Wanlu Liu and Howard Hao Yang and Zuozhu Liu},
-booktitle={The Twelfth International Conference on Learning Representations},
-year={2024}
+@inproceedings{xu2022fedcorr,
+    author = {Xu, Jingyi and Chen, Zihan and Quek, Tony Q.S. and Chong, Kai Fong Ernest},
+    title = {FedCorr: Multi-Stage Federated Learning for Label Noise Correction},
+    booktitle = {IEEE Conference on Computer Vision and Pattern Recognition (CVPR)},
+    year = {2022}
 }
+```
+
+​	
+
+## Errata [Updated on November 1, 2022]
+
+1. Supplementary material, Section 3.1, line 7 (arXiv version: page 13, line 1): Typo. The noise setting used for CIFAR-100 with non-IID data partition should be ( $\rho$, $\tau$ )=(0.4,0).
+
+
+
+## 0. Illustration
+
+![](img/flowchart.png)
+
+## 1. Parameters
+
+**1.1. Descriptions**
+
+| parameters           | description                                                  |
+| -------------------- | ------------------------------------------------------------ |
+| `iteration1`         | Number of iterations in  pre-processing stage                |
+| `rounds1`            | Number of rounds in finetuning stage                         |
+| `rounds2`            | Number of rounds in finetuning stage                         |
+| `frac1`              | Fraction for client selection in pre-processing stage        |
+| `frac2`              | Fraction for client selection in other two stage             |
+| `num_users`          | Number of clients                                            |
+| `local_bs`           | Batch size for local training                                |
+| `beta`               | Coefficient for local proximal term, default: `5`            |
+| `LID_k`              | K for number of neighboring samples to estimate LID score, default: `20` |
+| `level_n_system`     | Ratio of noisy clients ($\rho$ in the paper)                 |
+| `level_n_lowerb`     | Lower bound of noise level ($\tau$ in the paper)             |
+| `relabel_ratio`      | Ratio of relabeled samples among selected noisy samples      |
+| `confidence_thres`   | Threshold of model's confidence on each sample               |
+| `clean_set_thres`    | Threshold to filter 'clean' set used in finetuning stage, default: `0.1` |
+| `fine_tuning`        | `Action`, whether to include fine-tuning stage, default: `store_false` |
+| `correction`         | `Action`, whether to correct noisy labels, default: `store_false` |
+| `model`              | neural network model                                         |
+| `dataset`            | Dataset, options:`cifar10`,`cifar100` and `clothing1m`       |
+| `iid`                | `Action` IID or non-IID data partition, default: `store_true` |
+| `non_iid_prob_class` | Non-IID sampling probability for class ($p$ in the paper)    |
+| `alpha_dirichlet`    | Parameter for Dirichlet distribution ($\alpha_{DIR}$ in the paper) |
+| `pretrained`         | `Action`, whether to use pre-trained model, default: `store_true` |
+| `mixup`              | `Action`, whether to use Mixup, default: `store_true`        |
+| `alpha`              | Parameters for Mixup, default: `1`                           |
+
+
+
+**1.2. Values**
+
+| parameters         | CIFAR10  | CIFAR100 | CLOTHING1M |
+| ------------------ | -------- | -------- | ---------- |
+| `lr`               | 0.03     | 0.01     | 0.001      |
+| `iteration1`       | 5        | 10       | 2          |
+| `rounds1`          | 500      | 450      | 50         |
+| `rounds2`          | 450      | 450      | 50         |
+| `frac1`            | 0.01     | 0.02     | 0.002      |
+| `frac2`            | 0.1      | 0.1      | 0.02       |
+| `num_users`        | 100      | 50       | 500        |
+| `local_bs`         | 10       | 10       | 16         |
+| `relabel_ratio`    | 0.5      | 0.5      | 0.8        |
+| `confidence_thres` | 0.5      | 0.5      | 0.9        |
+| `model`            | resnet18 | resnet34 | resnet50   |
+
+
+
+## 2. Heterogeneous Label Noise Model
+
+In this paper, we propose a general framework for easy generation of heterogeneous label noise, which considers both local data statistics (i.e. IID or non-IID data partition) and local label quality (diverse noise levels for all clients).  
+
+**2.1.  Noisy datasets (CIFAR-10/100) used in this paper**
+
+For data partition, you can control the variability in both class distribution and the sizes of local datasets by varying `args.non_iid_prob_class` ($p$ in the paper) and `args.alpha_dirichlet` ($\alpha_{DIR}$) in util/options.py.
+
+When adding noise, the diverse noise levels on all clients are controlled by `args.level_n_system` ($\rho$) and `args.level_n_lowerb` ($\tau$).
+
+```python
+from util.util import add_noise
+from util.dataset import get_dataset
+
+dataset_train, dataset_test, dict_users = get_dataset(args)
+
+# ------------------- Add Noise -----------------------
+y_train = np.array(dataset_train.targets)
+y_train_noisy, gamma_s, real_noise_level = add_noise(args, y_train, dict_users)
+dataset_train.targets = y_train_noisy
+```
+
+**2.2 Other datasets**
+
+If you want to apply this framework to your own datasets:
+
+```python
+from util.util import add_noise
+from util.sampling import iid_sampling, non_iid_dirichlet_sampling
+
+dataset_train, dataset_test = get_your_own_dataset()
+y_train = np.array(dataset_train.targets)
+
+# ------------------- Data Partition -----------------------
+if args.iid:
+    dict_users = iid_sampling(n_train, args.num_users, args.seed)
+else:
+    dict_users = non_iid_dirichlet_sampling(y_train, args.num_classes, args.non_iid_prob_class, args.num_users, args.seed, args.alpha_dirichlet)
+
+# ------------------- Add Noise -----------------------
+y_train_noisy, gamma_s, real_noise_level = add_noise(args, y_train, dict_users)
+dataset_train.targets = y_train_noisy
+```
+
+
+
+**2.3 Illustration of local data partition**
+
+Three examples of different non-IID data partition (after sorting) on CIFAR-10 among 100 clients. Details of the figure and the its code can be found in `plot.ipynb`.	
+
+![](img/noniid_all.png)
+
+
+
+**2.4 Illustration of noise model**
+
+An example of noisy label distribution on the first five clients,  conducted on CIFAR-10 with IID data partition and noise setting $(\rho,\tau)=(0.6,0.5) $ among 100 clients.  For each client, we give the confusion matrix of local dataset before training.
+
+![](img/confusion_before.png)
+
+
+
+## 3. Combating Heterogeneous Label Noise using FedCorr
+
++ To train on CIFAR-10 with IID data partition and noise setting $(\rho,\tau)=(0.6,0.5)$, over 100 clients:
+
+```
+python main.py --dataset cifar10 --model resnet18 --iid --level_n_system 0.6 --level_n_lowerb 0.5 --iteration1 5 --rounds1 500 --rounds2 450 --seed 1 --mixup --lr 0.03 --beta 5
+```
+
++ To train on CIFAR-10 with non-IID data partition with $(p,\alpha_{Dir})=(0.7,10)$ and noise setting $(\rho,\tau)=(0.6,0.5)$, over 100 clients:
+
+```
+python main.py --dataset cifar10 --model resnet18 --non_iid_prob_class 0.7 --alpha_dirichlet 10 --level_n_system 0.6 --level_n_lowerb 0.5 --iteration1 5 --rounds1 500 --rounds2 450 --seed 1 --mixup --lr 0.03 --beta 5
+```
+
++ To train on CIFAR-100 with IID data partition and noise setting $(\rho,\tau)=(0.6,0.5)$, over 50 clients:
+
+```
+python main.py --dataset cifar100 --model resnet34 --num_users 50 --frac1 0.02 --iid --level_n_system 0.6 --level_n_lowerb 0.5 --iteration1 10 --rounds1 450 --rounds2 450 --seed 1 --mixup --lr 0.01 --beta 5
+```
+
++ To train on Clothing1M with non-IID data partition over 500 clients:
+
+```
+python main.py --dataset clothing1m --model resnet50 --pretrained --num_users 500 --frac1 0.002 --frac2 0.02 --level_n_system 0 --level_n_lowerb 0 --iteration1 2 --rounds1 50 --rounds2 50 --local_bs 16 --beta 5 --confidence_thres 0.9 --relabel_ratio 0.8 --lr 0.001 --seed 1 --mixup 
+```
+
+Please find more details of Clothing1M at <https://github.com/Cysu/noisy_label>.
+
+The directory structure should be
+
+```
+data/
+	├── clothing1m/
+        ├── category_names_chn.txt
+        ├── category_names_eng.txt
+        ├── clean_label_kv.txt
+        ├── clean_test_key_list.txt
+        ├── clean_train_key_list.txt
+        ├── clean_val_key_list.txt
+        ├── images
+        │   ├── 0
+        │   ├── ⋮
+        │   └── 9
+        ├── noisy_label_kv.txt
+        └── noisy_train_key_list.txt
+    ├── cifar10/
+    └── cifar100/
+FedCorr/
+	├── model/
+	├── util/
+	└── main.py
 ```
 
